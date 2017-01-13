@@ -69,3 +69,5 @@ reporting.config
 experimental/
 model/
 tests/
+kiwidata/
+report/
