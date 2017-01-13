@@ -88,8 +88,8 @@ class Segmentator(object):
     provided input.
     """
 
-    def __init__(self, desired_length=0.8, delay=0.3,
-                 window_size=2**11, detector_type='energy', threshold=0.01):
+    def __init__(self, desired_length=0.25, delay=0.1,
+                 window_size=2**12, detector_type='energy', threshold=0.01):
         """
         Available methods for detecting onsets are:
 

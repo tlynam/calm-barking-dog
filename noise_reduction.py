@@ -20,8 +20,7 @@ class NoiseRemover(object):
     def remove_noise(self, signal, rate):
         signal = remove_clicks(signal, rate, window_size=2**10, margin=1.2)
         # Apply highpass filter to greatly reduce signal strength below 1500 Hz.
-        self.sample_highpassed = highpass_filter(signal, rate, cut=1500)
-
+        self.sample_highpassed = highpass_filter(signal, rate, cut=500)
         self.segmentator = select_best_segmentator(self.sample_highpassed, rate, detector='energy')
         no_silence_intervals = self.segmentator.get_number_of_silence_intervals()
 
@@ -40,7 +39,7 @@ class NoiseRemover(object):
             out = reduce_noise(out, noise)  # Perform spectral subtraction
 
         # Apply high-pass filter on spectral-subtracted sample
-        out = highpass_filter(out, rate, 1500)
+        out = highpass_filter(out, rate, 500)
 
         return out
 
