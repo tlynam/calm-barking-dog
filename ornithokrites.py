@@ -96,8 +96,10 @@ class ParallelOrnithokrites(object):
 
 
 if __name__ == '__main__':
-    app_config = configuration.Configurator().parse_arguments()
-    if app_config.synchronous:
-        Ornithokrites(app_config).run()
-    else:
-        ParallelOrnithokrites(app_config).run()
+  app_config = configuration.Configurator().parse_arguments()
+  Ornithokrites(app_config).run()
+   # app_config = configuration.Configurator().parse_arguments()
+   # if app_config.synchronous:
+   #     Ornithokrites(app_config).run()
+   # else:
+   #     ParallelOrnithokrites(app_config).run()
