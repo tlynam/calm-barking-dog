@@ -67,3 +67,42 @@ Acknowledgements
 I wish to thank Barry Polley for providing this utmost interesting challenge and his assistance along the way. My great appreciation also goes to Pat Miller of [BirdingNZ.net community](http://www.birdingnz.net/) that supplied me with invaluable help concerning kiwi identification; without his aid I would not be able to achieve such high accuracy.
 
 
+
+Debug
+import code; code.interact(local=dict(globals(), **locals()))
+
+import inspect
+inspect.getmembers(self)
+wrap len() around object for length
+wrap type() around object for type
+
+Create New Preprocessor so can apply it later to testing data
+X = np.nan_to_num(features)
+X_scaled = preprocessing.scale(X)
+pickle.dump( X_scaled, open( "/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
+
+Store features and labels in database
+table data
+columns features(array), label(string)
+
+Plan
+-Create db with table to store data features/labels
+-Run code for home sounds then dog barks
+  - X = np.nan_to_num(features)
+  -save X and labels 0 for home sound, 1 for dog bark
+-Then load all features and run scaling preprocessor
+  - X_scaled = preprocessing.scale(X)
+  - pickle.dump( X_scaled, open("/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
+- Then run
+  - clf = svm.SVC()
+  - clf.fit(X_scaled, y) where y is array of labels
+- Then save this fit to can test
+  - pickle.dump( clf, open( "/home/osboxes/Desktop/Ornithokrites/model2.pkl", "wb" ) )
+- Then later can loaded
+  - clf2 = pickle.loads("/home/osboxes/Desktop/Ornithokrites/scaler2.pkl") # check syntax
+- To test against new
+  - first preprocess new sample
+  - X = np.nan_to_num(features)
+  - X = self._scaler.transform(X)
+  - P = self._model.predict(X)
+  - clf2.predict([[2., 2.]])
