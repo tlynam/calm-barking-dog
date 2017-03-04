@@ -66,8 +66,8 @@ Acknowledgements
 =============
 I wish to thank Barry Polley for providing this utmost interesting challenge and his assistance along the way. My great appreciation also goes to Pat Miller of [BirdingNZ.net community](http://www.birdingnz.net/) that supplied me with invaluable help concerning kiwi identification; without his aid I would not be able to achieve such high accuracy.
 
-
-
+Todd's Notes
+=============
 Debug
 import code; code.interact(local=dict(globals(), **locals()))
 
