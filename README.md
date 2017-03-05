@@ -76,6 +76,12 @@ inspect.getmembers(self)
 wrap len() around object for length
 wrap type() around object for type
 
+Pad audio file with 5 seconds of silence at beginning and end of file
+sox Bark2.wav Bark2longer.wav pad 5 5
+
+Append all wav files to all_barks.wav
+sox $(ls *.wav) all_barks.wav
+
 Create New Preprocessor so can apply it later to testing data
 X = np.nan_to_num(features)
 X_scaled = preprocessing.scale(X)
@@ -85,12 +91,19 @@ Store features and labels in database
 table data
 columns features(array), label(string)
 
+Convert numpy.ndarray to list then back to ndarray
+np.asarray(list(X))
+
+import psycopg2
+conn = psycopg2.connect("dbname='calm_dog' user='osboxes' host='localhost' password='osboxes'")
+cur = conn.cursor()
+
 Plan
--Create db with table to store data features/labels
--Run code for home sounds then dog barks
+- Create db with table to store data features/labels
+- Run code for home sounds then dog barks
   - X = np.nan_to_num(features)
   -save X and labels 0 for home sound, 1 for dog bark
--Then load all features and run scaling preprocessor
+- Then load all features and run scaling preprocessor
   - X_scaled = preprocessing.scale(X)
   - pickle.dump( X_scaled, open("/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
 - Then run
