@@ -14,6 +14,7 @@ from collections import namedtuple
 from utilities import contiguous_regions
 from sklearn import preprocessing
 from sklearn import svm
+import psycopg2
 
 Candidate = namedtuple('Candidate', 'start end')
 
@@ -23,8 +24,8 @@ class KiwiFinder(object):
 
     def __init__(self, app_config):
         """ Initialize Supervise Vector Machine with Gaussian kernel """
-        model_path = os.path.join(app_config.program_directory, 'model.pkl')
-        scaler_path = os.path.join(app_config.program_directory, 'scaler.pkl')
+        model_path = os.path.join(app_config.program_directory, 'model2.pkl')
+        scaler_path = os.path.join(app_config.program_directory, 'scaler2.pkl')
         with open(model_path, 'rb') as model_loader, open(scaler_path, 'rb') as scaler_loader:
             self._model = pickle.load(model_loader)
             self._scaler = pickle.load(scaler_loader)
@@ -33,8 +34,16 @@ class KiwiFinder(object):
 
     def find_individual_calls(self, features):
         X = np.nan_to_num(features)
+
+        conn = psycopg2.connect("dbname='calm_dog' user='osboxes' host='localhost' password='osboxes'")
+        cur = conn.cursor()
+        cleaned_features = np.nan_to_num(features)
+
         X = self._scaler.transform(X)
         P = self._model.predict(X)
+
+        import code; code.interact(local=dict(globals(), **locals()))
+
         return P
 
     def find_kiwi_regions(self, condition, segments, rate, min_no_ind_calls):

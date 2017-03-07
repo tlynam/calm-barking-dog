@@ -68,41 +68,12 @@ I wish to thank Barry Polley for providing this utmost interesting challenge and
 
 Todd's Notes
 =============
-Debug
-import code; code.interact(local=dict(globals(), **locals()))
 
-import inspect
-inspect.getmembers(self)
-wrap len() around object for length
-wrap type() around object for type
-
-Pad audio file with 5 seconds of silence at beginning and end of file
-sox Bark2.wav Bark2longer.wav pad 5 5
-
-Append all wav files to all_barks.wav
-sox $(ls *.wav) all_barks.wav
-
-Create New Preprocessor so can apply it later to testing data
-X = np.nan_to_num(features)
-X_scaled = preprocessing.scale(X)
-pickle.dump( X_scaled, open( "/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
-
-Store features and labels in database
-table data
-columns features(array), label(string)
-
-Convert numpy.ndarray to list then back to ndarray
-np.asarray(list(X))
-
-import psycopg2
-conn = psycopg2.connect("dbname='calm_dog' user='osboxes' host='localhost' password='osboxes'")
-cur = conn.cursor()
-
-Plan
+### Plan
 - Create db with table to store data features/labels
 - Run code for home sounds then dog barks
   - X = np.nan_to_num(features)
-  -save X and labels 0 for home sound, 1 for dog bark
+  - save X and labels 0 for home sound, 1 for dog bark
 - Then load all features and run scaling preprocessor
   - X_scaled = preprocessing.scale(X)
   - pickle.dump( X_scaled, open("/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
@@ -119,3 +90,109 @@ Plan
   - X = self._scaler.transform(X)
   - P = self._model.predict(X)
   - clf2.predict([[2., 2.]])
+
+### Debug
+import code; code.interact(local=dict(globals(), **locals()))
+
+import inspect
+inspect.getmembers(self)
+wrap len() around object for length
+wrap type() around object for type
+
+### Audio manipulation
+Pad audio file with 5 seconds of silence at beginning and end of file
+sox Bark2.wav Bark2longer.wav pad 5 5
+
+#!/bin/bash 
+for filename in kiwidata/george/*.wav; do 
+  sox "$filename" kiwidata/test/"$(basename "$filename" .wav)_long.wav" pad 2 2 
+done 
+
+Append all wav files to all_barks.wav
+sox $(ls *.wav) all_barks.wav
+
+### Store features in postgres database
+createdb calm_dog
+psql -d calm_dog
+
+CREATE TABLE data (
+    text_label      text,
+    label           integer,
+    features        float8[]
+);
+
+### Access db from python
+import psycopg2
+conn = psycopg2.connect("dbname='calm_dog' user='osboxes' host='localhost' password='osboxes'")
+cur = conn.cursor()
+
+# Delete previous entries
+cur.execute("DELETE FROM data")
+conn.commit()
+
+### Insert features into db
+cleaned_features = np.nan_to_num(features)
+
+# For importing the barks into db
+for feature in cleaned_features:
+  cur.execute(
+      """INSERT INTO data (text_label, label, features)
+         VALUES (%s, %s, %s);""",
+       ("bark", 1, list(feature)))
+
+# For importing the house noises into db
+for feature in cleaned_features:
+  cur.execute(
+      """INSERT INTO data (text_label, label, features)
+         VALUES (%s, %s, %s);""",
+       ("house", 0, list(feature)))
+
+conn.commit()
+conn.rollback()
+conn.close()
+
+### Retrieve rows from db
+cur.execute("""SELECT * from data""")
+rows = cur.fetchall()
+
+### Manipulate retrieved data
+Convert numpy.ndarray to list then back to ndarray
+np.asarray(list(X))
+
+rows[0][2] # is features array
+rows[0][1] # is label
+
+copied_features = np.ndarray(shape=(110,11), dtype=float, order='C')
+labels = [] # This is a python list
+
+i = 0
+for feature in rows:
+  labels.append(rows[i][1]) # Add label to labels list
+  copied_features[i] = rows[i][2] # Add features array
+  i += 1
+
+#### Perform preprocessing
+Create New Preprocessor so can apply it later to testing data
+copied_features_scaled = preprocessing.StandardScaler().fit(copied_features)
+
+### Save Preprocessor and Model to files
+pickle.dump(copied_features_scaled, open( "/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
+
+### Create fit
+clf = svm.SVC()
+clf.fit(copied_features_scaled, labels) 
+
+### Save fit model
+pickle.dump(clf, open( "/home/osboxes/Desktop/Ornithokrites/model2.pkl", "wb" ) )
+
+### Predict whether passed in feature is bark or house noise
+- scaler_path = os.path.join(app_config.program_directory, 'scaler3.pkl')
+- model_path = os.path.join(app_config.program_directory, 'model2.pkl')
+- with open(model_path, 'rb') as model_loader, open(scaler_path, 'rb') as scaler_loader:
+      self._model = pickle.load(model_loader)
+      self._scaler = pickle.load(scaler_loader)
+- Obtain audio clip
+- clean_clip = np.nan_to_num(clip)
+- processed_clip = 
+clf.predict(test_feature)
+
