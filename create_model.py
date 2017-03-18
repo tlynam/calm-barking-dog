@@ -15,7 +15,7 @@ cur = conn.cursor()
 cur.execute("""SELECT * from data""")
 rows = cur.fetchall()
 
-copied_features = np.ndarray(shape=(len(rows),11), dtype=float, order='C')
+copied_features = np.ndarray(shape=(len(rows),len(rows[0][2])), dtype=float, order='C')
 labels = []
 i = 0
 
