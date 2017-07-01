@@ -60,16 +60,22 @@ wrap type() around object for type
 Pad audio file with 5 seconds of silence at beginning and end of file
 sox Bark2.wav Bark2longer.wav pad 5 5
 
-#!/bin/bash 
+#!/bin/bash
 for filename in kiwidata/george/*.wav; do 
   sox "$filename" kiwidata/test/"$(basename "$filename" .wav)_long.wav" pad 2 2 
-done 
+done
 
 Append all wav files to all_barks.wav
 sox $(ls *.wav) all_barks.wav
 
 Convert m4a's from iPhone recording to wav
 for f in *.m4a; do avconv -i "$f" "${f/%m4a/wav}"; done
+
+# Record 1 second
+arecord -D hw:1,0 -f s16_le -r 44100 -d 1 -q > tmp/record.wav
+
+# Record 10 seconds
+sox -b 32 -e unsigned-integer -r 96k -c 2 -d --clobber --buffer $((96000*2*10)) /tmp/soxrecording.wav trim 0 10
 
 ### Store features in postgres database
 createdb calm_dog
