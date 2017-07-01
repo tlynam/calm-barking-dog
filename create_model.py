@@ -9,7 +9,7 @@ from sklearn import preprocessing
 from sklearn import svm
 import psycopg2
 
-conn = psycopg2.connect("dbname='calm_dog' user='osboxes' host='localhost' password='osboxes'")
+conn = psycopg2.connect("dbname='calm_dog' user='pi' password='pi' host='localhost'")
 cur = conn.cursor()
 
 cur.execute("""SELECT * from data""")
@@ -25,9 +25,9 @@ for feature in rows:
   i += 1
 
 scaler = preprocessing.StandardScaler().fit(copied_features)
-pickle.dump(scaler, open( "/home/osboxes/Desktop/Ornithokrites/scaler2.pkl", "wb" ) )
+pickle.dump(scaler, open( "/home/pi/code/Ornithokrites/scaler4.pkl", "wb" ) )
 copied_features_scaled = scaler.transform(copied_features)
 
 clf = svm.SVC()
-clf.fit(copied_features_scaled, labels) 
-pickle.dump(clf, open( "/home/osboxes/Desktop/Ornithokrites/model2.pkl", "wb" ) )
+clf.fit(copied_features_scaled, labels)
+pickle.dump(clf, open( "/home/pi/code/Ornithokrites/model4.pkl", "wb" ) )
