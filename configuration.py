@@ -12,7 +12,7 @@ import argparse
 from collections import namedtuple
 
 
-AppConfig = namedtuple('AppConfig', ['data_store', 'bucket', 'no_processes', 'write_stdout',
+AppConfig = namedtuple('AppConfig', ['data_store', 'stream', 'bucket', 'no_processes', 'write_stdout',
                                      'delete_data', 'with_spectrogram', 'synchronous',
                                      'program_directory', 'mail'])
 
@@ -27,6 +27,7 @@ class Configurator(object):
         self._parser.add_argument('-d', '--datastore', help='Directory with recordings. If bucket was '
                                   'not provided, then program takes this directory as a location of inpiut data. If bucket '
                                   'was provided, then to this location recordings shall be downloaded.')
+        self._parser.add_argument('-s', '--stream', help='Stream from recording device.')
         self._parser.add_argument('-m', '--mail', help=argparse.SUPPRESS)
             # help='E-mail address to which a notification will be '
             # 'sent once identification is completed.')
@@ -49,10 +50,14 @@ class Configurator(object):
                 data_store = '/var/www/results/'  # default for the Web Interface
         elif args.datastore:  # Command-line batch mode
             data_store = args.datastore
+            stream = ''
+        elif args.stream:  # Hardware stream
+            data_store = ''
+            stream = args.stream
         self._check_negative(args.numproc)
         program_dir = os.path.dirname(os.path.realpath(__file__))
 
-        return AppConfig(data_store, args.bucket, args.numproc, args.stdout, args.deletedata,
+        return AppConfig(data_store, stream, args.bucket, args.numproc, args.stdout, args.deletedata,
                          args.withspectrogram, args.synchronous, program_dir, args.mail)
 
     def _check_negative(self, value):

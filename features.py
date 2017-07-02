@@ -9,7 +9,6 @@ import os
 import sys
 import itertools
 import numpy as np
-import matplotlib.pyplot as plt
 import yaafelib
 
 

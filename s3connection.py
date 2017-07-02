@@ -10,18 +10,24 @@ Module for getting data from given S3 bucket.
 import os
 import sys
 import logging
-import boto
 import scipy.io.wavfile as wav
 import Tkinter
 import tkFileDialog
-
+import alsaaudio
+import numpy
 
 class RecordingsFetcher(object):
     """ Class for getting WAVE recordings from a given S3 bucket """
     def __init__(self):
         self._log = logging.getLogger('log.html')
+        self.rate = 44100
+        self.inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, 'hw:1,0')
+        self.inp.setchannels(1)
+        self.inp.setrate(self.rate)
+        self.inp.setperiodsize(4000)
+        self.inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 
-    def get_next_recording(self, bucket_name, data_store):
+    def get_next_recording(self, bucket_name, data_store, stream):
         """
         Generator for getting WAVE files. The data will be provided on-demand basis.
 
@@ -53,13 +59,32 @@ class RecordingsFetcher(object):
                     _make_sure_dir_exists(path)
                     key.get_contents_to_filename(path)  # Download the file
                     (rate, sample) = wav.read(path)
-                    yield rate, sample.astype('float32'), path
+                    yield rate, sample.astype('float32')
+
+        elif stream:  # Get data from stream
+            while True:
+                print 'Recording clip'
+                data = ''
+
+                for i in range(0, 30):
+                    length, datum = self.inp.read()
+                    if length > 0:
+                        data += datum
+
+                print 'Recorded clip'
+
+                data = numpy.fromstring(data, dtype=numpy.int16)
+                data = numpy.nan_to_num(data)
+
+                yield self.rate, data, ''
+
         elif data_store:  # Get locally stored data
             for dirpath, dirnames, filenames in os.walk(data_store):
                 for filename in [f for f in filenames if f.endswith('.wav')]:
                     path = os.path.join(dirpath, filename)
                     (rate, sample) = wav.read(path)
                     yield rate, sample.astype('float32'), path
+
         else:  # Interactive mode - let user select a signle file
             root = Tkinter.Tk()
             root.withdraw()
