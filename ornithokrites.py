@@ -10,94 +10,152 @@ Identification of kiwi calls from audio recordings - main module.
 
 import multiprocessing
 import configuration
-import reporting
 import noise_reduction
 import features
 import identification
 import s3connection
-
+import wave
+import numpy
+from datetime import datetime
+from subprocess import call
+import psycopg2
+import shutil
+import os
+from sklearn import preprocessing
+from sklearn import svm
+import pickle
 
 class Ornithokrites(object):
-    """
-    Synchronous version. All steps are done in sequence: a single wave file is acquired and then
-    processed.
-    """
-    def __init__(self, app_config):
-        self.app_config = app_config
-        self.reporter = reporting.Reporter(app_config)
-        self.kiwi_finder = identification.KiwiFinder(app_config)
-        self.noise_remover = noise_reduction.NoiseRemover()
-        self.fetcher = s3connection.RecordingsFetcher()
+	"""
+	Synchronous version. All steps are done in sequence: a single wave file is acquired and then
+	processed.
+	"""
 
-    def run(self):
-        for rate, sample, sample_name in self.fetcher.get_next_recording(data_store=app_config.data_store,
-                                                                         bucket_name=app_config.bucket):
-
-            filtered_sample = self.noise_remover.remove_noise(sample, rate)
-            segmented_sounds = self.noise_remover.segmentator.Sounds
-            if segmented_sounds:
-                feature_extractor = features.FeatureExtractor(app_config, rate)
-                extracted_features = feature_extractor.process(filtered_sample, segmented_sounds)
-
-                kiwi_calls = self.kiwi_finder.find_individual_calls(extracted_features)
-                result_per_file = self.kiwi_finder.find_kiwi(kiwi_calls, segmented_sounds, rate)
-                self.reporter.write_results(result_per_file, kiwi_calls, sample_name, filtered_sample,
-                                            rate, segmented_sounds)
-        self.reporter.cleanup()
+	def __init__(self, app_config):
+		self.app_config = app_config
+		self.kiwi_finder = identification.KiwiFinder(app_config)
+		self.noise_remover = noise_reduction.NoiseRemover()
+		self.fetcher = s3connection.RecordingsFetcher()
+		self.sample_count = 0
 
 
-class ParallelOrnithokrites(object):
-    """
-    Asynchrounous version. Recordings are put inside a queue and then passed to workers that will
-    handle the processing. Each worker shall submit its results to an output queue.
-    """
-    def __init__(self, app_config):
-        self.app_config = app_config
-        reporter = reporting.Reporter(app_config)
-        recordings_buffer_size = app_config.no_processes * 4  # only this number of recordings will be acquired
+	def run(self):
+		for rate, sample, path in self.fetcher.get_next_recording(data_store=app_config.data_store,
+															stream=app_config.stream,
+															bucket_name=app_config.bucket):
 
-        self.recordings_q = multiprocessing.Queue(recordings_buffer_size)  # limited size of a queue
-        self.output_q = multiprocessing.Queue()
+			self.process(rate, sample, path)
 
-        self.process_in = multiprocessing.Process(target=s3connection.RecordingsFetcher().get_recordings,
-                                                  args=(app_config, self.recordings_q))
-        self.process_out = multiprocessing.Process(target=reporter.write_results_parallel,
-                                                   args=(self.output_q,))
-        self.process_kiwi = [multiprocessing.Process(target=self.worker, args=()) for i in range(app_config.no_processes)]
 
-    def run(self):
-        self.process_in.start()
-        self.process_out.start()
-        for kiwi in self.process_kiwi:
-            kiwi.start()
-        self.process_in.join()
-        for kiwi in self.process_kiwi:
-            kiwi.join()
-        self.process_out.join()
+	def process(self, rate, sample, path):
+		filtered_sample = self.noise_remover.remove_noise(sample, rate)
+		segmented_sounds = self.noise_remover.segmentator.Sounds
 
-    def worker(self):
-        kiwi_finder = identification.KiwiFinder(self.app_config)
-        noise_remover = noise_reduction.NoiseRemover()
+		if segmented_sounds:
+			feature_extractor = features.FeatureExtractor(app_config, rate)
+			extracted_features = feature_extractor.process(filtered_sample, segmented_sounds)
+			extracted_features = numpy.nan_to_num(extracted_features)
 
-        for rate, sample, sample_name in iter(self.recordings_q.get, "STOP"):
-            exception = None
-            try:
-                filtered_sample = noise_remover.remove_noise(sample, rate)
-                segmented_sounds = noise_remover.segmentator.Sounds
-                feature_extractor = features.FeatureExtractor(self.app_config, rate)
-                extracted_features = feature_extractor.process(signal=filtered_sample, segments=segmented_sounds)
-                kiwi_calls = kiwi_finder.find_individual_calls(extracted_features)
-                result_per_file = kiwi_finder.find_kiwi(kiwi_calls, segmented_sounds, rate)
-            except Exception, ex:
-                exception = ex
-            self.output_q.put((result_per_file, kiwi_calls, sample_name, filtered_sample, rate,
-                               segmented_sounds, exception))
-        self.output_q.put("STOP")
+			if app_config.stream: # If streaming audio: play audio if bark, and save raw segments to bark/non_bark folders
+				segments_analysis = self.kiwi_finder.find_individual_calls(extracted_features)
+				self.save_segments(segmented_sounds, segments_analysis, filtered_sample, rate)
+				if 1 in segments_analysis: # Detect bark
+					print "Bark detected, playing rain for 5 seconds"
+					call(["aplay", "calming_sounds/rain.wav", "-d", "5"])
+
+			elif app_config.data_store: # If reading audio from disk: save features into db, and regenerate models
+				self.store_features(extracted_features, path)
+				self.move_processed_file(path)
+				self.regenerate_models()
+
+		elif app_config.data_store: # Delete file with no segments
+			os.remove(path)
+			print "Removed file with no segments: " + path
+
+
+	def regenerate_models(self):
+		conn = psycopg2.connect("dbname='calm_dog' user='pi' password='pi' host='localhost'")
+		cur = conn.cursor()
+
+		cur.execute("""SELECT * from data""")
+		rows = cur.fetchall()
+
+		copied_features = numpy.ndarray(shape=(len(rows),len(rows[0][2])), dtype=float, order='C')
+		labels = []
+		i = 0
+
+		for feature in rows:
+		  labels.append(rows[i][1])
+		  copied_features[i] = rows[i][2]
+		  i += 1
+
+		scaler = preprocessing.StandardScaler().fit(copied_features)
+
+		preprocessor_path = "/home/pi/code/Ornithokrites/preprocessors/scaler4.pkl"
+		pickle.dump(scaler, open(preprocessor_path, "wb" ) )
+		print "Regenerated Preprocessor: " + preprocessor_path
+
+		copied_features_scaled = scaler.transform(copied_features)
+
+		clf = svm.SVC()
+		clf.fit(copied_features_scaled, labels)
+
+		model_path = "/home/pi/code/Ornithokrites/models/model4.pkl"
+		pickle.dump(clf, open(model_path, "wb" ) )
+		print "Regenerated Model: " + model_path
+
+
+	def store_features(self, extracted_features, path):
+		if 'non_bark' in path:
+			label, text_label = [0, 'non_bark']
+		else:
+			label, text_label = [1, 'bark']
+
+		conn = psycopg2.connect("dbname='calm_dog' user='pi' password='pi' host='localhost'")
+		cur = conn.cursor()
+
+		for feature in extracted_features:
+		  cur.execute(
+		      """INSERT INTO data (text_label, label, features)
+		         VALUES (%s, %s, %s);""",
+		       (text_label, label, list(feature)))
+
+		conn.commit()
+		conn.close()
+		print "Stored " + str(len(extracted_features)) + " features into database"
+
+
+	def move_processed_file(self, path):
+		old_path = path
+		new_path = path.replace("categorized_data", "imported_data")
+		shutil.move(old_path, new_path)
+		print "Moved file from categorized_data to imported_data folder"
+
+
+	def save_segments(self, segmented_sounds, segments_analysis, filtered_sample, rate):
+		for index, (start, end) in enumerate(segmented_sounds):
+			feature = segments_analysis[index]
+
+			data = filtered_sample[int(start):int(end)]
+			data = data.astype(numpy.int16)
+			raw_data = data.tostring()
+
+			self.save_file(raw_data, feature, rate)
+
+
+	def save_file(self, data, feature, rate):
+		folder = 'barks' if feature == 1 else 'non_barks'
+		fullpath = 'data/raw_data/' + folder + '/' + datetime.utcnow().strftime('%Y%m%d-%H%M%S-%f') + '.wav'
+
+		w = wave.open(fullpath, 'wb')
+		w.setnchannels(1)
+		w.setsampwidth(2)
+		w.setframerate(rate)
+		w.writeframes(data)
+		w.close()
+		print "Saved raw data " + fullpath
 
 
 if __name__ == '__main__':
-    app_config = configuration.Configurator().parse_arguments()
-    if app_config.synchronous:
-        Ornithokrites(app_config).run()
-    else:
-        ParallelOrnithokrites(app_config).run()
+	app_config = configuration.Configurator().parse_arguments()
+	Ornithokrites(app_config).run()
