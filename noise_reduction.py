@@ -47,7 +47,8 @@ class NoiseRemover(object):
 def select_best_segmentator(signal, rate, detector):
     # Segmentator divides a track into segments containing sound features (non-noise)
     # and silence (noise)
-    segmentator = Segmentator(detector_type=detector, threshold=0.01)
+    segmentator = Segmentator(detector_type=detector, threshold=0.1,
+        desired_length=1, delay=0.3, window_size=2**13)
 
     # Perform segmentation on high-passed sample
     segmentator.process(signal, rate)
@@ -91,7 +92,7 @@ def remove_clicks(signal, rate, window_size, margin):
     overlap = window_size / 2.0
     mask = np.ones(len(signal), dtype=bool)
 
-    if np.abs(signal.max()) > 2**14:
+    if np.abs(np.nanmax(signal)) > 2**14:
         energy = calculate_energy(signal, window_size, overlap)
         energy = sig.medfilt(energy, 15)
 
