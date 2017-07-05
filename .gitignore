@@ -71,5 +71,4 @@ model/
 tests/
 kiwidata/
 report/
-raw_data/
-categorized_data/
+data/
