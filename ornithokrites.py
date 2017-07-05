@@ -20,7 +20,6 @@ from datetime import datetime
 from subprocess import call
 import psycopg2
 import shutil
-import os
 from sklearn import preprocessing
 from sklearn import svm
 import pickle
@@ -58,6 +57,7 @@ class Ornithokrites(object):
 
 			if app_config.stream: # If streaming audio: play audio if bark, and save raw segments to bark/non_bark folders
 				segments_analysis = self.kiwi_finder.find_individual_calls(extracted_features)
+
 				self.save_segments(segmented_sounds, segments_analysis, filtered_sample, rate)
 				if 1 in segments_analysis: # Detect bark
 					print "Bark detected, playing rain for 5 seconds"
@@ -66,11 +66,13 @@ class Ornithokrites(object):
 			elif app_config.data_store: # If reading audio from disk: save features into db, and regenerate models
 				self.store_features(extracted_features, path)
 				self.move_processed_file(path)
-				self.regenerate_models()
+				# self.regenerate_models()
 
 		elif app_config.data_store: # Delete file with no segments
-			os.remove(path)
-			print "Removed file with no segments: " + path
+			old_path = path
+			new_path = path.replace("categorized_data", "no_segments")
+			shutil.move(old_path, new_path)
+			print "Moved file from categorized_data to no_segments folder " + new_path
 
 
 	def regenerate_models(self):
@@ -122,14 +124,14 @@ class Ornithokrites(object):
 
 		conn.commit()
 		conn.close()
-		print "Stored " + str(len(extracted_features)) + " features into database"
+		print "Stored " + str(len(extracted_features)) + " features into database from " + path
 
 
 	def move_processed_file(self, path):
 		old_path = path
 		new_path = path.replace("categorized_data", "imported_data")
 		shutil.move(old_path, new_path)
-		print "Moved file from categorized_data to imported_data folder"
+		print "Moved file from categorized_data to imported_data folder " + new_path
 
 
 	def save_segments(self, segmented_sounds, segments_analysis, filtered_sample, rate):
