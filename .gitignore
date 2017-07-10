@@ -72,3 +72,5 @@ tests/
 kiwidata/
 report/
 data/
+
+._*
