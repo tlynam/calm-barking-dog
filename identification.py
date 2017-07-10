@@ -24,8 +24,8 @@ class KiwiFinder(object):
 
     def __init__(self, app_config):
         """ Initialize Supervise Vector Machine with Gaussian kernel """
-        model_path = os.path.join(app_config.program_directory, 'models/model4.pkl')
-        scaler_path = os.path.join(app_config.program_directory, 'preprocessors/scaler4.pkl')
+        model_path = os.path.join(app_config.program_directory, 'models/model5.pkl')
+        scaler_path = os.path.join(app_config.program_directory, 'preprocessors/scaler5.pkl')
         with open(model_path, 'rb') as model_loader, open(scaler_path, 'rb') as scaler_loader:
             self._model = pickle.load(model_loader)
             self._scaler = pickle.load(scaler_loader)
