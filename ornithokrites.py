@@ -66,45 +66,12 @@ class Ornithokrites(object):
 			elif app_config.data_store: # If reading audio from disk: save features into db, and regenerate models
 				self.store_features(extracted_features, path)
 				self.move_processed_file(path)
-				# self.regenerate_models()
 
 		elif app_config.data_store: # Delete file with no segments
 			old_path = path
 			new_path = path.replace("categorized_data", "no_segments")
 			shutil.move(old_path, new_path)
 			print "Moved file from categorized_data to no_segments folder " + new_path
-
-
-	def regenerate_models(self):
-		conn = psycopg2.connect("dbname='calm_dog' user='pi' password='pi' host='localhost'")
-		cur = conn.cursor()
-
-		cur.execute("""SELECT * from data""")
-		rows = cur.fetchall()
-
-		copied_features = numpy.ndarray(shape=(len(rows),len(rows[0][2])), dtype=float, order='C')
-		labels = []
-		i = 0
-
-		for feature in rows:
-		  labels.append(rows[i][1])
-		  copied_features[i] = rows[i][2]
-		  i += 1
-
-		scaler = preprocessing.StandardScaler().fit(copied_features)
-
-		preprocessor_path = "/home/pi/code/Ornithokrites/preprocessors/scaler4.pkl"
-		pickle.dump(scaler, open(preprocessor_path, "wb" ) )
-		print "Regenerated Preprocessor: " + preprocessor_path
-
-		copied_features_scaled = scaler.transform(copied_features)
-
-		clf = svm.SVC()
-		clf.fit(copied_features_scaled, labels)
-
-		model_path = "/home/pi/code/Ornithokrites/models/model4.pkl"
-		pickle.dump(clf, open(model_path, "wb" ) )
-		print "Regenerated Model: " + model_path
 
 
 	def store_features(self, extracted_features, path):
