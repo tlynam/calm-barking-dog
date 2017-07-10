@@ -1,10 +1,30 @@
 Calm your dog with machine learning
 ============
 
+### Listen for barks
 To listing continuously for dog barks and play `rain.wav` when a bark is detected.  I plan on being able to pass in the microphone location.
 `python ornithokrites.py --stream 'stream'`
 
-To load categorized sound files into the database.  Sound files must be in either `/barks` or `/non_barks`.
+### Set up the database
+```
+createdb calm_dog
+psql -d calm_dog
+
+CREATE TABLE data (
+    text_label      text,
+    label           integer,
+    features        float8[]
+);
+```
+
+To restore the database:
+`pg_restore --verbose --clean --no-acl --no-owner -h localhost -U pi -d calm_dog calm_dog.dump`
+
+To dump the database:
+`pg_dump --username pi --verbose --clean --no-owner --no-acl --format=c calm_dog > calm_dog2.dump`
+
+### Load categorized data into db
+Sound files must be in either `/barks` or `/non_barks`.
 Until it's fixed, we need first to add padding to the beginning and end of sound clips.  This is because the sound clips from the stream recording are very short and aren't picked up as segments.  Edit this `add_wav_padding.sh` file and run for both barks and non_barks.
 
 `./add_wav_padding.sh`
@@ -15,14 +35,12 @@ If you have many sound clips to load, it's much faster to join wav clips togethe
 To load categorized sound clips into the database.
 `python ornithokrites.py -d data/categorized_data/`
 
+### Generate a new model
 To regenerate the scaler and model.  The scaler is for normalizing the sound.
 `python create_model.py`
 
-To restore the database:
-`pg_restore --verbose --clean --no-acl --no-owner -h localhost -U pi -d calm_dog calm_dog.dump`
-
-To dump the database:
-`pg_dump --username pi --verbose --clean --no-owner --no-acl --format=c calm_dog > calm_dog2.dump`
+### Python debugger
+`import code; code.interact(local=dict(globals(), **locals()))`
 
 How it works (Based on the wonderful Ornithokrites project by Lukasz Tracewski)
 ============
